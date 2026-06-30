@@ -24,6 +24,27 @@ function getPiAuthFilePath() {
   return path.join(home, '.pi', 'agent', 'auth.json');
 }
 
+function getModelConfig() {
+  const localPath = getLocalConfigPath();
+  let geminiModel = process.env.GEMINI_MODEL || "gemini-2.5-pro";
+  let geminiFallbackModel = process.env.GEMINI_FALLBACK_MODEL || "gemini-2.5-flash";
+  
+  if (fs.existsSync(localPath)) {
+    try {
+      const config = JSON.parse(fs.readFileSync(localPath, 'utf8'));
+      if (config.geminiModel) {
+        geminiModel = config.geminiModel;
+      }
+      if (config.geminiFallbackModel) {
+        geminiFallbackModel = config.geminiFallbackModel;
+      }
+    } catch (e) {
+      // Ignore config read issues for model resolution
+    }
+  }
+  return { geminiModel, geminiFallbackModel };
+}
+
 async function getOrRefreshAccessToken() {
   const localPath = getLocalConfigPath();
   const piPath = getPiAuthFilePath();
@@ -84,6 +105,7 @@ async function getOrRefreshAccessToken() {
       }
       
       const savePath = usingLocal ? localPath : piPath;
+      // Preserve custom model config in local config if rewriting
       fs.writeFileSync(savePath, JSON.stringify(authData, null, 2), 'utf8');
       console.log("[Proxy] Token refreshed successfully.");
     } catch (err) {
@@ -328,7 +350,7 @@ function sanitizeSchema(schema) {
   return sanitized;
 }
 
-function mapAnthropicRequestToGemini(anthropicReq, projectId) {
+function mapAnthropicRequestToGemini(anthropicReq, projectId, defaultModel) {
   const contents = [];
   
   for (const msg of anthropicReq.messages) {
@@ -444,11 +466,16 @@ function mapAnthropicRequestToGemini(anthropicReq, projectId) {
     generationConfig.maxOutputTokens = anthropicReq.max_tokens;
   }
   
-  // ponytail: Hardcoded model mapping to Gemini 2.5 Pro.
-  // Ceiling: cannot query other models. Upgrade path: dynamic resolution mapping from request model field.
+  // Resolve target model:
+  // Use requested model directly if starts with gemini-
+  let targetModel = defaultModel;
+  if (anthropicReq.model && anthropicReq.model.startsWith("gemini-")) {
+    targetModel = anthropicReq.model;
+  }
+  
   return {
     project: projectId,
-    model: "gemini-2.5-pro",
+    model: targetModel,
     request: {
       contents: mergedContents,
       systemInstruction,
@@ -533,7 +560,8 @@ const server = http.createServer(async (req, res) => {
         console.log(`[Proxy] Received messages request for model: ${anthropicReq.model}, stream: ${anthropicReq.stream}`);
         
         const { accessToken, projectId } = await getOrRefreshAccessToken();
-        const geminiReq = mapAnthropicRequestToGemini(anthropicReq, projectId);
+        const { geminiModel, geminiFallbackModel } = getModelConfig();
+        const geminiReq = mapAnthropicRequestToGemini(anthropicReq, projectId, geminiModel);
         
         let response = await fetch('https://cloudcode-pa.googleapis.com/v1internal:streamGenerateContent?alt=sse', {
           method: 'POST',
@@ -547,8 +575,8 @@ const server = http.createServer(async (req, res) => {
         
         // Auto fallback to Flash if Pro model hits 429
         if (response.status === 429) {
-          console.warn(`[Proxy] Model ${geminiReq.model} hit 429 rate limit. Retrying with gemini-2.5-flash...`);
-          geminiReq.model = "gemini-2.5-flash";
+          console.warn(`[Proxy] Model ${geminiReq.model} hit 429 rate limit. Retrying with ${geminiFallbackModel}...`);
+          geminiReq.model = geminiFallbackModel;
           response = await fetch('https://cloudcode-pa.googleapis.com/v1internal:streamGenerateContent?alt=sse', {
             method: 'POST',
             headers: {
