@@ -178,6 +178,27 @@ CodeWeaver aims to become a universal backend compatibility layer for AI coding 
 
 ## Advanced Configurations & System Integration
 
+### Custom Model Configuration
+
+CodeWeaver defaults to `gemini-2.5-pro` with a seamless rate-limit fallback to `gemini-2.5-flash`. You can change these targets depending on your quota limits using any of the following options:
+
+1. **Via settings.json (Recommended):** Set the `"model"` field in your `~/.claude/settings.json` to any valid Gemini model ID starting with `gemini-`. CodeWeaver will detect the prefix and route requests directly:
+   ```json
+   "model": "gemini-3.1-pro-preview"
+   ```
+2. **Via local config.json properties:** Add custom model mappings in the local `config.json` file:
+   ```json
+   {
+     "geminiModel": "gemini-3.1-pro-preview",
+     "geminiFallbackModel": "gemini-3.1-flash-lite"
+   }
+   ```
+3. **Via Environment Variables:** Export overrides in your terminal session before starting CodeWeaver:
+   ```bash
+   export GEMINI_MODEL="gemini-3.1-pro-preview"
+   export GEMINI_FALLBACK_MODEL="gemini-3.1-flash-lite"
+   ```
+
 ### Configuration Locations
 
 The proxy resolves authentication credentials automatically based on your host operating system:
