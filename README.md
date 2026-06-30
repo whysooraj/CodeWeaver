@@ -104,7 +104,31 @@ codeweaver
 *(If manual install: `node proxy.js`)*
 
 ### 3. Route Claude Code to CodeWeaver
-Add the endpoint overrides to your Claude Code settings at `~/.claude/settings.json` (or `%USERPROFILE%\.claude\settings.json` on Windows):
+
+To redirect Claude Code's traffic to the proxy, configure the required environment variables:
+
+#### Option A: Quick Test (Environment Variables)
+Set the variables in your terminal session before starting Claude:
+
+**macOS / Linux / WSL:**
+```bash
+export ANTHROPIC_BASE_URL="http://127.0.0.1:8099/v1"
+export ANTHROPIC_AUTH_TOKEN="sk-dummy-key-for-local-proxy"
+claude
+```
+
+**Windows (PowerShell):**
+```powershell
+$env:ANTHROPIC_BASE_URL="http://127.0.0.1:8099/v1"
+$env:ANTHROPIC_AUTH_TOKEN="sk-dummy-key-for-local-proxy"
+claude
+```
+
+#### Option B: Permanent Configuration (Recommended)
+1. Ensure the Claude configuration directory exists:
+   - **macOS / Linux / WSL:** `mkdir -p ~/.claude`
+   - **Windows (PowerShell):** `New-Item -ItemType Directory -Path "$HOME\.claude" -Force`
+2. Create or write to `~/.claude/settings.json` (or `%USERPROFILE%\.claude\settings.json` on Windows):
 
 ```json
 {
