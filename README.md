@@ -182,11 +182,12 @@ CodeWeaver aims to become a universal backend compatibility layer for AI coding 
 
 CodeWeaver defaults to `gemini-2.5-pro` with a seamless rate-limit fallback to `gemini-2.5-flash`. You can change these targets depending on your quota limits using any of the following options:
 
-1. **Interactively inside Claude Code (Recommended):** CodeWeaver registers Gemini models under a `claude-gemini-` alias (which satisfies Claude Code's internal prefix filters). You can view the list or switch models at any time directly in the prompt session:
-   ```text
-   /model claude-gemini-3.1-pro-preview
-   ```
-2. **Via settings.json:** Set the `"model"` field in your `~/.claude/settings.json` to any valid Gemini model ID starting with `gemini-` or `claude-gemini-`:
+1. **Interactively inside Claude Code (Recommended):** Claude Code enforces a strict client-side model whitelist. CodeWeaver maps these official Claude aliases directly to Gemini models:
+   - `/model sonnet` (maps to **Gemini 2.5 Pro**)
+   - `/model haiku` (maps to **Gemini 2.5 Flash**)
+   - `/model opus` (maps to **Gemini 3.1 Pro Preview**)
+   - `/model fable` (maps to **Gemini 3.1 Flash Lite**)
+2. **Via settings.json:** Set the `"model"` field in your `~/.claude/settings.json` to any valid Gemini model ID starting with `gemini-` or any of the mapped Claude aliases:
    ```json
    "model": "gemini-3.1-pro-preview"
    ```
