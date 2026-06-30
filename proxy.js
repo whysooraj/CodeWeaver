@@ -105,7 +105,6 @@ async function getOrRefreshAccessToken() {
       }
       
       const savePath = usingLocal ? localPath : piPath;
-      // Preserve custom model config in local config if rewriting
       fs.writeFileSync(savePath, JSON.stringify(authData, null, 2), 'utf8');
       console.log("[Proxy] Token refreshed successfully.");
     } catch (err) {
@@ -467,10 +466,22 @@ function mapAnthropicRequestToGemini(anthropicReq, projectId, defaultModel) {
   }
   
   // Resolve target model:
-  // Use requested model directly if starts with gemini-
+  // Map whitelisted Anthropic models directly to corresponding Gemini models
   let targetModel = defaultModel;
-  if (anthropicReq.model && anthropicReq.model.startsWith("gemini-")) {
-    targetModel = anthropicReq.model;
+  const reqModel = anthropicReq.model || "";
+  
+  if (reqModel.startsWith("gemini-")) {
+    targetModel = reqModel;
+  } else if (reqModel.startsWith("claude-gemini-")) {
+    targetModel = reqModel.replace("claude-gemini-", "gemini-");
+  } else if (reqModel.includes("sonnet")) {
+    targetModel = "gemini-2.5-pro";
+  } else if (reqModel.includes("haiku")) {
+    targetModel = "gemini-2.5-flash";
+  } else if (reqModel.includes("opus")) {
+    targetModel = "gemini-3.1-pro-preview";
+  } else if (reqModel.includes("fable")) {
+    targetModel = "gemini-3.1-flash-lite";
   }
   
   return {
@@ -530,19 +541,31 @@ const server = http.createServer(async (req, res) => {
           {
             type: "model",
             id: "claude-3-5-sonnet-20241022",
-            display_name: "Claude 3.5 Sonnet",
+            display_name: "Claude 3.5 Sonnet (Gemini 2.5 Pro)",
             created_at: "2024-10-22T00:00:00Z"
           },
           {
             type: "model",
-            id: "claude-opus-4-8",
-            display_name: "Claude 4.8 Opus",
-            created_at: "2026-04-08T00:00:00Z"
+            id: "claude-3-5-haiku-20241022",
+            display_name: "Claude 3.5 Haiku (Gemini 2.5 Flash)",
+            created_at: "2024-10-22T00:00:00Z"
+          },
+          {
+            type: "model",
+            id: "claude-3-opus-20240229",
+            display_name: "Claude 3 Opus (Gemini 3.1 Pro Preview)",
+            created_at: "2024-02-29T00:00:00Z"
+          },
+          {
+            type: "model",
+            id: "claude-fable-5",
+            display_name: "Claude Fable 5 (Gemini 3.1 Flash Lite)",
+            created_at: "2026-06-30T00:00:00Z"
           }
         ],
         has_more: false,
         first_id: "claude-3-5-sonnet-20241022",
-        last_id: "claude-opus-4-8"
+        last_id: "claude-fable-5"
       }));
     }
     return;
