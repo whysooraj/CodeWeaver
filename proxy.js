@@ -596,20 +596,12 @@ const server = http.createServer(async (req, res) => {
         const { geminiModel, geminiFallbackModel } = getModelConfig();
         const geminiReq = mapAnthropicRequestToGemini(anthropicReq, projectId, geminiModel);
         
-        let response = await fetch('https://cloudcode-pa.googleapis.com/v1internal:streamGenerateContent?alt=sse', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
-            'Accept': 'text/event-stream'
-          },
-          body: JSON.stringify(geminiReq)
-        });
+        let attempt = 0;
+        let response;
+        let currentModel = geminiReq.model;
         
-        // Auto fallback to Flash if Pro model hits 429
-        if (response.status === 429) {
-          console.warn(`[Proxy] Model ${geminiReq.model} hit 429 rate limit. Retrying with ${geminiFallbackModel}...`);
-          geminiReq.model = geminiFallbackModel;
+        while (attempt < 3) {
+          geminiReq.model = currentModel;
           response = await fetch('https://cloudcode-pa.googleapis.com/v1internal:streamGenerateContent?alt=sse', {
             method: 'POST',
             headers: {
@@ -619,6 +611,33 @@ const server = http.createServer(async (req, res) => {
             },
             body: JSON.stringify(geminiReq)
           });
+          
+          if (response.status === 429) {
+            // First retry fallback if using primary pro model and fallback is configured differently
+            if (currentModel === geminiModel && geminiModel !== geminiFallbackModel) {
+              console.warn(`[Proxy] Model ${currentModel} hit 429 rate limit. Retrying with fallback: ${geminiFallbackModel}...`);
+              currentModel = geminiFallbackModel;
+              attempt++;
+              continue;
+            }
+            
+            // Otherwise parse sleep duration from error response
+            const errText = await response.clone().text();
+            let waitSec = 5;
+            try {
+              const match = errText.match(/reset after (\d+)s/i);
+              if (match) {
+                waitSec = parseInt(match[1], 10) + 1;
+              }
+            } catch (e) {}
+            
+            console.warn(`[Proxy] Quota exhausted (429) on ${currentModel}. Sleeping for ${waitSec}s (attempt ${attempt + 1}/3)...`);
+            await new Promise(r => setTimeout(r, waitSec * 1000));
+            attempt++;
+            continue;
+          }
+          
+          break; // Success or non-429 error
         }
         
         if (!response.ok) {
