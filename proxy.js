@@ -370,20 +370,25 @@ function mapAnthropicRequestToGemini(anthropicReq, projectId, defaultModel) {
             }
           });
         } else if (block.type === "tool_use") {
-          parts.push({
-            functionCall: {
-              name: block.name,
-              args: block.input || {}
-            }
-          });
+          const functionCall = {
+            name: block.name,
+            args: block.input || {}
+          };
+          parts.push({ functionCall });
         } else if (block.type === "tool_result") {
           let toolName = "unknown";
+          let thoughtSig = "";
+          
           if (block.tool_use_id.startsWith("toolu_")) {
             const idParts = block.tool_use_id.split("_");
             if (idParts.length >= 2) {
               // ponytail: Stateless tool name resolution via name prefix in generated ID.
               // Ceiling: fails if tool names contain underscores. Upgrade path: use stateful mapping store.
               toolName = idParts[1];
+            }
+            if (idParts.length >= 4 && idParts[2] === "sig") {
+              // Extract the base64url encoded thought signature embedded in the ID
+              thoughtSig = Buffer.from(idParts[3], 'base64').toString('utf8');
             }
           }
           
@@ -394,12 +399,17 @@ function mapAnthropicRequestToGemini(anthropicReq, projectId, defaultModel) {
             responseVal = block.content.map(c => c.text || "").join("\n");
           }
           
-          parts.push({
-            functionResponse: {
-              name: toolName,
-              response: block.is_error ? { error: responseVal } : { output: responseVal }
-            }
-          });
+          const functionResponse = {
+            name: toolName,
+            response: block.is_error ? { error: responseVal } : { output: responseVal }
+          };
+          
+          if (thoughtSig) {
+            // Append thoughtSignature verbatim as required by Gemini 3 model validations
+            functionResponse.thoughtSignature = thoughtSig;
+          }
+          
+          parts.push({ functionResponse });
         }
       }
     }
@@ -700,7 +710,13 @@ const server = http.createServer(async (req, res) => {
                     blockIndex++;
                   }
                   
-                  const toolUseId = `toolu_${part.functionCall.name}_${Math.random().toString(36).slice(2, 9)}`;
+                  // Encode the thoughtSignature inside the generated toolUseId if present in Gemini response
+                  let toolUseId = `toolu_${part.functionCall.name}_${Math.random().toString(36).slice(2, 9)}`;
+                  if (candidate.thoughtSignature) {
+                    const encodedSig = Buffer.from(candidate.thoughtSignature).toString('base64url');
+                    toolUseId += `_sig_${encodedSig}`;
+                  }
+                  
                   res.write(`event: content_block_start\n`);
                   res.write(`data: ${JSON.stringify({
                     type: "content_block_start",
