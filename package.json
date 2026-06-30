@@ -1,0 +1,19 @@
+{
+  "name": "codeweaver",
+  "version": "1.0.0",
+  "description": "A local compatibility layer that enables Claude Code to use an authenticated Gemini CLI session (Google OAuth) as its backend model provider.",
+  "main": "proxy.js",
+  "scripts": {
+    "start": "node proxy.js"
+  },
+  "keywords": [
+    "claude",
+    "gemini",
+    "codeweaver",
+    "proxy",
+    "oauth",
+    "cloudcode-assist"
+  ],
+  "author": "",
+  "license": "MIT"
+}
