@@ -1,24 +1,24 @@
 # CodeWeaver
 
-Run Claude Code using your Gemini CLI subscription.
+<p align="center">
+  <strong>Run Claude Code using your Gemini CLI subscription.</strong><br>
+  <em>No Anthropic subscription. No Gemini API key. No Vertex AI. Just your Google login.</em>
+</p>
 
-No Anthropic subscription.
-No Gemini API key.
-No Vertex AI.
-Just your Google login.
+<p align="center">
+  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+  <a href="https://nodejs.org"><img src="https://img.shields.io/badge/node-%3E%3D18.0.0-blue.svg" alt="Node.js Version"></a>
+  <a href="#features"><img src="https://img.shields.io/badge/compatibility-Claude_Code-brightgreen.svg" alt="Claude Code"></a>
+  <a href="#features"><img src="https://img.shields.io/badge/compatibility-Gemini_CLI-blue.svg" alt="Gemini CLI"></a>
+  <a href="#features"><img src="https://img.shields.io/badge/dependencies-zero-brightgreen.svg" alt="Zero Dependencies"></a>
+  <a href="#features"><img src="https://img.shields.io/badge/auth-Google_OAuth-red.svg" alt="Google OAuth"></a>
+</p>
 
 ---
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Node.js Version](https://img.shields.io/badge/node-%3E%3D18.0.0-blue.svg)](https://nodejs.org)
-[![Claude Code](https://img.shields.io/badge/compatibility-Claude_Code-brightgreen.svg)](#features)
-[![Gemini CLI](https://img.shields.io/badge/compatibility-Gemini_CLI-blue.svg)](#features)
-[![Google OAuth](https://img.shields.io/badge/auth-Google_OAuth-red.svg)](#features)
-[![Dependencies](https://img.shields.io/badge/dependencies-zero-brightgreen.svg)](#features)
+CodeWeaver is a local compatibility layer that enables **Claude Code** to use an authenticated **Gemini CLI session** (Google OAuth) as its backend model provider. It translates Anthropic-compatible requests into Gemini CLI requests while preserving streaming, tool use, and the full Claude Code workflow.
 
-CodeWeaver is a local compatibility layer that enables Claude Code to use an authenticated Gemini CLI session (Google OAuth) as its backend model provider. It translates Anthropic-compatible requests into Gemini CLI requests while preserving streaming, tool use, and the Claude Code workflow.
-
-Claude Code is one of the best AI coding agents available, but it normally requires Anthropic access. This project allows Claude Code to run on top of an authenticated Gemini CLI session using a local protocol translation layer, without requiring Gemini API keys or Vertex AI.
+> Claude Code is one of the best AI coding agents available, but it normally requires an Anthropic subscription. CodeWeaver lets you use it with the subscription you already have.
 
 ---
 
@@ -53,7 +53,9 @@ Claude Code
 
 ## Demo
 
-![CodeWeaver Terminal Demo](codeweaver_demo.jpg)
+<!-- ![CodeWeaver Terminal Demo](codeweaver_demo.jpg) -->
+
+> 🎥 **Demo coming soon!** Run `codeweaver --login` to see it in action.
 
 ---
 
@@ -64,7 +66,7 @@ Claude Code
 Install CodeWeaver instantly:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/sai21-learn/claude-gemini-proxy/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/whysooraj/CodeWeaver/main/claude-gemini-proxy/install.sh | bash
 ```
 
 This installs CodeWeaver to `~/.codeweaver` and creates an executable symlink in `~/.local/bin/codeweaver`.
@@ -74,8 +76,8 @@ This installs CodeWeaver to `~/.codeweaver` and creates an executable symlink in
 Alternatively, clone the repository and run the setup commands:
 
 ```bash
-git clone https://github.com/sai21-learn/claude-gemini-proxy.git
-cd claude-gemini-proxy
+git clone https://github.com/whysooraj/CodeWeaver.git
+cd CodeWeaver/claude-gemini-proxy
 node proxy.js --login
 node proxy.js
 claude
@@ -256,7 +258,7 @@ Description=CodeWeaver Local Proxy Server
 After=network.target
 
 [Service]
-ExecStart=/usr/bin/node /home/whysooraj/claude-gemini-proxy/proxy.js
+ExecStart=/usr/bin/node /path/to/CodeWeaver/claude-gemini-proxy/proxy.js
 Restart=on-failure
 
 [Install]

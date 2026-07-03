@@ -27,7 +27,7 @@ mkdir -p "$INSTALL_DIR"
 mkdir -p "$BIN_DIR"
 
 # 3. Download files from GitHub
-REPO_RAW_URL="https://raw.githubusercontent.com/sai21-learn/claude-gemini-proxy/main"
+REPO_RAW_URL="https://raw.githubusercontent.com/whysooraj/CodeWeaver/main/claude-gemini-proxy"
 
 echo "Fetching proxy scripts..."
 curl -fsSL "$REPO_RAW_URL/proxy.js" -o "$INSTALL_DIR/proxy.js"

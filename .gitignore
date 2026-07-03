@@ -1,2 +1,5 @@
 node_modules
 *.log
+
+# Promotion assets (drafts, posts, launch plans)
+promotion/
