@@ -332,7 +332,9 @@ function sanitizeSchema(schema) {
   
   for (const key of allowedKeys) {
     if (workingSchema[key] !== undefined) {
-      if (key === 'properties') {
+      if (key === 'type') {
+        sanitized.type = String(workingSchema.type).toUpperCase();
+      } else if (key === 'properties') {
         const props = {};
         for (const [propName, propVal] of Object.entries(workingSchema.properties)) {
           props[propName] = sanitizeSchema(propVal);
@@ -340,6 +342,10 @@ function sanitizeSchema(schema) {
         sanitized.properties = props;
       } else if (key === 'items') {
         sanitized.items = sanitizeSchema(workingSchema.items);
+      } else if (key === 'enum') {
+        sanitized.enum = Array.isArray(workingSchema.enum)
+          ? workingSchema.enum.map(val => String(val))
+          : workingSchema.enum;
       } else {
         sanitized[key] = workingSchema[key];
       }
@@ -472,7 +478,7 @@ function mapAnthropicRequestToGemini(anthropicReq, projectId, defaultModel) {
     generationConfig.temperature = anthropicReq.temperature;
   }
   if (anthropicReq.max_tokens !== undefined) {
-    generationConfig.maxOutputTokens = anthropicReq.max_tokens;
+    generationConfig.maxOutputTokens = Math.min(anthropicReq.max_tokens, 8192);
   }
   
   // Resolve target model:
@@ -489,9 +495,9 @@ function mapAnthropicRequestToGemini(anthropicReq, projectId, defaultModel) {
   } else if (reqModel.includes("haiku")) {
     targetModel = "gemini-2.5-flash";
   } else if (reqModel.includes("opus")) {
-    targetModel = "gemini-3.1-pro-preview";
+    targetModel = "gemini-2.5-pro";
   } else if (reqModel.includes("fable")) {
-    targetModel = "gemini-3.1-flash-lite";
+    targetModel = "gemini-2.5-flash";
   }
   
   return {
@@ -510,6 +516,9 @@ function mapAnthropicRequestToGemini(anthropicReq, projectId, defaultModel) {
 
 const server = http.createServer(async (req, res) => {
   console.log(`[Proxy] Incoming request: ${req.method} ${req.url}`);
+  try {
+    fs.appendFileSync(path.join(__dirname || process.cwd(), 'debug.log'), `[Proxy] Incoming request: ${req.method} ${req.url}\n`, 'utf8');
+  } catch (e) {}
   
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, HEAD');
@@ -602,6 +611,10 @@ const server = http.createServer(async (req, res) => {
         
         while (attempt < 3) {
           geminiReq.model = currentModel;
+          console.log("[Proxy] Outgoing request payload:", JSON.stringify(geminiReq, null, 2));
+          try {
+            fs.writeFileSync(path.join(__dirname || process.cwd(), 'req.json'), JSON.stringify(geminiReq, null, 2), 'utf8');
+          } catch (e) {}
           response = await fetch('https://cloudcode-pa.googleapis.com/v1internal:streamGenerateContent?alt=sse', {
             method: 'POST',
             headers: {
@@ -643,6 +656,9 @@ const server = http.createServer(async (req, res) => {
         if (!response.ok) {
           const errText = await response.text();
           console.error("[Proxy] Code Assist API error:", response.status, errText);
+          try {
+            fs.appendFileSync(path.join(__dirname || process.cwd(), 'debug.log'), `[Proxy] Code Assist API error: ${response.status} ${errText}\n`, 'utf8');
+          } catch (e) {}
           res.writeHead(response.status, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: { message: `Google Code Assist error: ${errText}` } }));
           return;
