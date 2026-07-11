@@ -462,15 +462,20 @@ function mapAnthropicRequestToGemini(anthropicReq, projectId, defaultModel) {
   
   let tools = undefined;
   if (anthropicReq.tools && anthropicReq.tools.length > 0) {
-    tools = [
-      {
-        functionDeclarations: anthropicReq.tools.map(t => ({
-          name: t.name,
-          description: t.description,
-          parameters: sanitizeSchema(t.input_schema || {})
-        }))
-      }
-    ];
+    const reqModel = anthropicReq.model || "";
+    // Safety classifier / auto-mode checks use opus and do not need tools.
+    // Stripping them saves ~95% of tokens and avoids 429 resource exhaustion.
+    if (!reqModel.includes("opus")) {
+      tools = [
+        {
+          functionDeclarations: anthropicReq.tools.map(t => ({
+            name: t.name,
+            description: t.description,
+            parameters: sanitizeSchema(t.input_schema || {})
+          }))
+        }
+      ];
+    }
   }
   
   const generationConfig = {};
