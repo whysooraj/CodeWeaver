@@ -342,10 +342,6 @@ function sanitizeSchema(schema) {
         sanitized.properties = props;
       } else if (key === 'items') {
         sanitized.items = sanitizeSchema(workingSchema.items);
-      } else if (key === 'enum') {
-        sanitized.enum = Array.isArray(workingSchema.enum)
-          ? workingSchema.enum.map(val => String(val))
-          : workingSchema.enum;
       } else {
         sanitized[key] = workingSchema[key];
       }
@@ -386,15 +382,22 @@ function mapAnthropicRequestToGemini(anthropicReq, projectId, defaultModel) {
           let thoughtSig = "";
           
           if (block.tool_use_id.startsWith("toolu_")) {
-            const idParts = block.tool_use_id.split("_");
-            if (idParts.length >= 2) {
-              // ponytail: Stateless tool name resolution via name prefix in generated ID.
-              // Ceiling: fails if tool names contain underscores. Upgrade path: use stateful mapping store.
-              toolName = idParts[1];
+            let remaining = block.tool_use_id.slice(6); // remove "toolu_"
+            const sigIdx = remaining.indexOf("_sig_");
+            if (sigIdx !== -1) {
+              const sigPart = remaining.slice(sigIdx + 5);
+              remaining = remaining.slice(0, sigIdx);
+              try {
+                thoughtSig = Buffer.from(sigPart, 'base64url').toString('utf8');
+              } catch (e) {}
             }
-            if (idParts.length >= 4 && idParts[2] === "sig") {
-              // Extract the base64url encoded thought signature embedded in the ID
-              thoughtSig = Buffer.from(idParts[3], 'base64').toString('utf8');
+            // ponytail: Stateless tool name resolution via dropping final random suffix (no underscore).
+            const parts = remaining.split("_");
+            if (parts.length > 1) {
+              parts.pop(); // remove randomSuffix
+              toolName = parts.join("_");
+            } else {
+              toolName = remaining;
             }
           }
           
@@ -465,7 +468,7 @@ function mapAnthropicRequestToGemini(anthropicReq, projectId, defaultModel) {
     const reqModel = anthropicReq.model || "";
     // Safety classifier / auto-mode checks use opus and do not need tools.
     // Stripping them saves ~95% of tokens and avoids 429 resource exhaustion.
-    if (!reqModel.includes("opus")) {
+    if (!reqModel.includes("claude-3-opus")) {
       tools = [
         {
           functionDeclarations: anthropicReq.tools.map(t => ({
@@ -483,7 +486,7 @@ function mapAnthropicRequestToGemini(anthropicReq, projectId, defaultModel) {
     generationConfig.temperature = anthropicReq.temperature;
   }
   if (anthropicReq.max_tokens !== undefined) {
-    generationConfig.maxOutputTokens = Math.min(anthropicReq.max_tokens, 8192);
+    generationConfig.maxOutputTokens = anthropicReq.max_tokens;
   }
   
   // Resolve target model:
@@ -500,9 +503,9 @@ function mapAnthropicRequestToGemini(anthropicReq, projectId, defaultModel) {
   } else if (reqModel.includes("haiku")) {
     targetModel = "gemini-2.5-flash";
   } else if (reqModel.includes("opus")) {
-    targetModel = "gemini-2.5-pro";
+    targetModel = "gemini-3.1-pro-preview";
   } else if (reqModel.includes("fable")) {
-    targetModel = "gemini-2.5-flash";
+    targetModel = "gemini-3.1-flash-lite";
   }
   
   return {
@@ -521,9 +524,6 @@ function mapAnthropicRequestToGemini(anthropicReq, projectId, defaultModel) {
 
 const server = http.createServer(async (req, res) => {
   console.log(`[Proxy] Incoming request: ${req.method} ${req.url}`);
-  try {
-    fs.appendFileSync(path.join(__dirname || process.cwd(), 'debug.log'), `[Proxy] Incoming request: ${req.method} ${req.url}\n`, 'utf8');
-  } catch (e) {}
   
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, HEAD');
@@ -616,10 +616,6 @@ const server = http.createServer(async (req, res) => {
         
         while (attempt < 3) {
           geminiReq.model = currentModel;
-          console.log("[Proxy] Outgoing request payload:", JSON.stringify(geminiReq, null, 2));
-          try {
-            fs.writeFileSync(path.join(__dirname || process.cwd(), 'req.json'), JSON.stringify(geminiReq, null, 2), 'utf8');
-          } catch (e) {}
           response = await fetch('https://cloudcode-pa.googleapis.com/v1internal:streamGenerateContent?alt=sse', {
             method: 'POST',
             headers: {
@@ -661,9 +657,6 @@ const server = http.createServer(async (req, res) => {
         if (!response.ok) {
           const errText = await response.text();
           console.error("[Proxy] Code Assist API error:", response.status, errText);
-          try {
-            fs.appendFileSync(path.join(__dirname || process.cwd(), 'debug.log'), `[Proxy] Code Assist API error: ${response.status} ${errText}\n`, 'utf8');
-          } catch (e) {}
           res.writeHead(response.status, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: { message: `Google Code Assist error: ${errText}` } }));
           return;
