@@ -1,3 +1,6 @@
+> [!WARNING]
+> **Project Deprecated & Archived**: Google restricted Gemini CLI OAuth endpoints to enterprise/workspace subscriptions only. CodeWeaver is no longer functional or maintained. Thank you to everyone who used and supported it.
+
 # CodeWeaver
 
 <p align="center">
